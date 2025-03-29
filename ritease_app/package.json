@@ -1,0 +1,44 @@
+{
+  "name": "ritease_app",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --turbopack",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@pdftron/pdfjs-express": "^8.7.5",
+    "@react-pdf/renderer": "^4.3.0",
+    "@types/react-pdf": "^6.2.0",
+    "fabric": "^6.6.1",
+    "jspdf": "^3.0.1",
+    "next": "15.2.4",
+    "pdf-lib": "^1.17.1",
+    "pdfjs-dist": "^4.0.379",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-dropzone": "^14.3.8",
+    "react-icons": "^5.5.0",
+    "react-pdf": "^7.7.3",
+    "worker-loader": "^3.0.8",
+    "zustand": "^5.0.3"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3",
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/pdfjs-dist": "^2.10.377",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "autoprefixer": "^10.4.21",
+    "css-loader": "^7.1.2",
+    "eslint": "^9",
+    "eslint-config-next": "15.2.4",
+    "postcss": "^8.5.3",
+    "style-loader": "^4.0.0",
+    "tailwindcss": "^4.0.17",
+    "typescript": "^5"
+  }
+}

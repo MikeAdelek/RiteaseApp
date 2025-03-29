@@ -1,0 +1,98 @@
+@import "tailwindcss";
+
+body {
+  @apply bg-gray-50;
+}
+
+.pdf-annotation {
+  position: absolute;
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.highlight-annotation {
+  background-color: yellow;
+}
+
+.underline-annotation {
+  border-bottom: 2px solid blue;
+}
+
+/* PDF styles
+.react-pdf__Page {
+  position: relative;
+  margin: 1em auto;
+  padding: 0;
+  overflow: hidden;
+  background-color: white;
+}
+
+.react-pdf__Page__textContent {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  overflow: hidden;
+  opacity: 0.2;
+  line-height: 1.0;
+}
+
+.react-pdf__Page__annotations.annotationLayer {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+}
+
+.react-pdf__Page__canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+} */
+/* Add these styles to your globals.css */
+.react-pdf__Document {
+  display: inline-block;
+  line-height: 1;
+}
+
+.react-pdf__Page {
+  position: relative !important;
+}
+
+.react-pdf__Page__textContent {
+  pointer-events: auto !important;
+  opacity: 1 !important;
+  user-select: text !important;
+  -webkit-user-select: text !important;
+  -moz-user-select: text !important;
+  -ms-user-select: text !important;
+}
+
+.react-pdf__Page__annotations {
+  pointer-events: none;
+}
+
+.react-pdf__Page__annotations.annotationLayer {
+  pointer-events: none !important;
+}
+
+.annotation-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+}
+
+.annotation-overlay.active {
+  pointer-events: auto;
+}
+
+canvas {
+  image-rendering: pixelated;
+}
