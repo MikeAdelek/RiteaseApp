@@ -1,10 +1,4 @@
-import { Annotation, AnnotationType } from "@/constant/ApplicationTypes";
-import { rgb } from "pdf-lib";
-
-interface Point {
-  x: number;
-  y: number;
-}
+import { Annotation, Position } from "@/types/types";
 
 export const drawAnnotation = (
   annotation: Annotation,
@@ -12,128 +6,142 @@ export const drawAnnotation = (
 ) => {
   if (!context) return;
 
-  switch (annotation.type) {
-    case "highlight":
-      context.fillStyle = `${annotation.color}80`;
-      context.fillRect(
-        annotation.position.x,
-        annotation.position.y - 15,
-        annotation.position.width,
-        20
-      );
-      break;
+  context.save();
 
-    case "underline":
-      context.beginPath();
-      context.moveTo(annotation.position.x, annotation.position.y);
-      context.lineTo(
-        annotation.position.x + annotation.position.width,
-        annotation.position.y
-      );
-      context.strokeStyle = annotation.color;
-      context.lineWidth = 2;
-      context.stroke();
-      break;
-
-    case "signature":
-      if (annotation.signaturePoints && annotation.signaturePoints.length > 0) {
-        const { signaturePoints } = annotation;
-        context.beginPath();
-        context.moveTo(
-          annotation.position.x + signaturePoints[0].x,
-          annotation.position.y + signaturePoints[0].y
+  try {
+    switch (annotation.type) {
+      case "highlight":
+        context.fillStyle = `${annotation.color}80`; // 50% opacity
+        context.fillRect(
+          annotation.position.x,
+          annotation.position.y - 15,
+          annotation.position.width || 0,
+          20
         );
-        signaturePoints.forEach((point, i) => {
-          if (i > 0) {
-            const xc = (point.x + signaturePoints[i - 1].x) / 2;
-            const yc = (point.y + signaturePoints[i - 1].y) / 2;
-            context.quadraticCurveTo(
-              annotation.position.x + signaturePoints[i - 1].x,
-              annotation.position.y + signaturePoints[i - 1].y,
-              annotation.position.x + xc,
-              annotation.position.y + yc
-            );
-          }
-        });
+        break;
+
+      case "underline":
+        context.beginPath();
+        context.moveTo(annotation.position.x, annotation.position.y);
+        context.lineTo(
+          annotation.position.x + (annotation.position.width || 0),
+          annotation.position.y
+        );
         context.strokeStyle = annotation.color;
         context.lineWidth = 2;
-        context.lineCap = "round";
-        context.lineJoin = "round";
         context.stroke();
-      }
-      break;
+        break;
 
-    case "comment":
-      // Draw comment icon
-      context.fillStyle = annotation.color;
-      context.beginPath();
-      context.arc(
-        annotation.position.x,
-        annotation.position.y,
-        10,
-        0,
-        2 * Math.PI
-      );
-      context.fill();
-      // Draw comment text if present
-      if (annotation.comment) {
-        context.font = "12px Arial";
-        context.fillStyle = "#000000";
-        context.fillText(
-          annotation.comment,
-          annotation.position.x + 15,
-          annotation.position.y + 5
+      case "comment":
+        // Draw comment box
+        context.beginPath();
+        context.rect(
+          annotation.position.x,
+          annotation.position.y,
+          annotation.position.width || 0,
+          annotation.position.height || 0
         );
-      }
-      break;
+        context.strokeStyle = annotation.color;
+        context.stroke();
+
+        // Draw comment text
+        if (annotation.text) {
+          context.font = "14px Arial";
+          context.fillStyle = "#000000";
+          context.fillText(
+            annotation.text,
+            annotation.position.x + 5,
+            annotation.position.y + 20,
+            (annotation.position.width || 0) - 10
+          );
+        }
+        break;
+
+      case "signature":
+        if (
+          annotation.signaturePoints &&
+          annotation.signaturePoints.length > 0
+        ) {
+          context.beginPath();
+          context.moveTo(
+            annotation.signaturePoints[0].x,
+            annotation.signaturePoints[0].y
+          );
+
+          annotation.signaturePoints.forEach((point) => {
+            context.lineTo(point.x, point.y);
+          });
+
+          context.strokeStyle = annotation.color;
+          context.lineWidth = 2;
+          context.lineCap = "round";
+          context.lineJoin = "round";
+          context.stroke();
+        }
+        break;
+    }
+  } finally {
+    context.restore();
   }
 };
 
 export const drawCurrentAnnotation = (
   context: CanvasRenderingContext2D,
-  start: Point,
-  current: Point,
+  startPosition: Position,
+  currentPosition: Position,
   tool: string,
   color: string
 ) => {
-  switch (tool) {
-    case "highlight":
-      context.fillStyle = `${color}80`;
-      context.fillRect(
-        Math.min(start.x, current.x),
-        start.y - 10,
-        Math.abs(current.x - start.x),
-        20
-      );
-      break;
+  console.log("Drawing current annotation:", {
+    tool,
+    startPosition,
+    currentPosition,
+    color,
+    contextExists: !!context
+  });
 
-    case "underline":
-      context.beginPath();
-      context.moveTo(start.x, start.y);
-      context.lineTo(current.x, start.y);
-      context.strokeStyle = color;
-      context.lineWidth = 2;
-      context.stroke();
-      break;
+  // Save the current context state
+  context.save();
 
-    case "signature":
-      context.beginPath();
-      context.moveTo(start.x, start.y);
-      context.lineTo(current.x, current.y);
-      context.strokeStyle = color;
-      context.lineWidth = 2;
-      context.stroke();
-      break;
+  try {
+    const width = Math.abs(currentPosition.x - startPosition.x);
+    const height = Math.abs(currentPosition.y - startPosition.y);
+
+    switch (tool) {
+      case "highlight":
+        context.fillStyle = `${color}80`;
+        context.fillRect(
+          Math.min(startPosition.x, currentPosition.x),
+          startPosition.y - 15,
+          width,
+          20
+        );
+        break;
+
+      case "underline":
+        context.beginPath();
+        context.moveTo(startPosition.x, startPosition.y);
+        context.lineTo(currentPosition.x, startPosition.y);
+        context.strokeStyle = color;
+        context.lineWidth = 2;
+        context.stroke();
+        break;
+
+      case "signature":
+        context.beginPath();
+        context.moveTo(startPosition.x, startPosition.y);
+        context.lineTo(currentPosition.x, currentPosition.y);
+        context.strokeStyle = color;
+        context.lineWidth = 2;
+        context.lineCap = "round";
+        context.lineJoin = "round";
+        context.stroke();
+        break;
+    }
+  } catch (error) {
+    console.error("Error drawing current annotation:", error);
+  } finally {
+    // Restore the context state
+    context.restore();
   }
-};
-
-export const hexToRgb = (hex: string) => {
-  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-  return result
-    ? {
-        r: parseInt(result[1], 16) / 255,
-        g: parseInt(result[2], 16) / 255,
-        b: parseInt(result[3], 16) / 255
-      }
-    : null;
 };

@@ -1,36 +1,47 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
+import { usePDFStore } from "@/store/store";
 import DocumentUploader from "@/Components/DocumentUploader";
 import PDFViewerWrapper from "@/Components/PDFViewerWrapper";
-// import PDFViewer from "@/Components/PDFViewer";
 import AnnotationToolbar from "@/Components/AnnotationToolbar";
-import { usePDFStore } from "@/store/store";
 
-export default function Home() {
+interface HomeProps {}
+
+export default function Home({}: HomeProps) {
   const { currentDocument } = usePDFStore();
   const [showAnnotationTools, setShowAnnotationTools] = useState(false);
 
+  const handleUploadComplete = useCallback(() => {
+    setShowAnnotationTools(true);
+  }, []);
+
   return (
-    <main className="min-h-screen bg-gray-100 p-8">
+    <main className="min-h-screen bg-gray-100 p-8" role="main">
       <div className="container mx-auto">
-        <header className="mb-6">
-          <h1 className="text-3xl font-bold mb-6 text-center">
+        <header className="mb-6" role="banner">
+          <h1
+            className="text-3xl font-bold mb-6 text-center text-gray-800"
+            aria-label="PDF Signer & Annotator"
+          >
             PDF Signer & Annotator
           </h1>
         </header>
 
-        {!currentDocument ? (
-          <DocumentUploader
-            onUploadComplete={() => setShowAnnotationTools(true)}
-          />
-        ) : (
-          // <div className="grid grid-cols-1 md:grid-cols-4 gap-4"></div>
-          <main className="md:col-span-3">
-            <PDFViewerWrapper />
-          </main>
-        )}
+        <section
+          className="max-w-4xl mx-auto"
+          aria-label={currentDocument ? "PDF Viewer" : "Document Upload"}
+        >
+          {!currentDocument ? (
+            <DocumentUploader onUploadComplete={handleUploadComplete} />
+          ) : (
+            <div className="bg-white rounded-lg shadow-lg">
+              <PDFViewerWrapper />
+            </div>
+          )}
+        </section>
       </div>
     </main>
   );
 }
+("");

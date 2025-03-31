@@ -25,7 +25,7 @@
       "@/store/*": ["./src/store/*"],
       "@/types/*": ["./src/types/*"],
       "@/constant/*": ["./src/constant/*"],
-      "@/styles/*": ["./src/styles/*"],
+      "@/styles/*": ["src/types/*"],
       "@/utils/*": ["./src/utils/*"],
     }
   },

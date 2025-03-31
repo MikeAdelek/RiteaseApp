@@ -1,79 +1,61 @@
 "use client";
 
+import { useCallback } from "react";
 import { usePDFStore } from "@/store/store";
-import { AnnotationType } from "@/constant/ApplicationTypes";
-import { FaHighlighter, FaPen, FaSignature, FaTimes, FaRegComment } from "react-icons/fa";
+import { AnnotationType } from "@/types/types";
+import { cn } from "@/utils/classNames";
 
-export default function AnnotationToolbar() {
-  const { currentTool, setCurrentTool } = usePDFStore();
+const tools = [
+  { type: "highlight", label: "Highlight Text" },
+  { type: "underline", label: "Underline Text" },
+  { type: "comment", label: "Add Comment" },
+  { type: "signature", label: "Add Signature" }
+] as const;
 
-  const tools: {
-    type: AnnotationType;
-    label: string;
-    icon: React.ElementType;
-  }[] = [
-    {
-      type: "highlight",
-      label: "Highlight",
-      icon: FaHighlighter
+export default function AnnotationToolbar({
+  className
+}: {
+  className?: string;
+}) {
+  const { currentTool, setCurrentTool, color, setAnnotationColor } =
+    usePDFStore();
+
+  const handleToolClick = useCallback(
+    (tool: AnnotationType) => {
+      setCurrentTool(currentTool === tool ? null : tool);
     },
-    {
-      type: "underline",
-      label: "Underline",
-      icon: FaPen
-    },
-    {
-      type: "comment",
-      label: "Comment",
-      icon: FaRegComment
-    },
-    {
-      type: "signature",
-      label: "Signature",
-      icon: FaSignature
-    }
-  ];
+    [currentTool, setCurrentTool]
+  );
 
   return (
     <div
-      className="flex space-x-2"
-      role="toolbar"
-      aria-label="PDF Annotation Tools"
+      className={cn("flex items-center gap-4 p-4 bg-white border-b", className)}
     >
-      {tools.map((tool) => {
-        const ToolIcon = tool.icon;
-        return (
-          <button
-            aria-label={tool.label}
-            type="button"
-            key={tool.type}
-            // aria-pressed={currentTool === tool.type}
-            title={tool.label}
-            onClick={() =>
-              setCurrentTool(currentTool === tool.type ? null : tool.type)
-            }
-            className={`p-2 rounded-md transition-all ${
-              currentTool === tool.type
-                ? "bg-blue-500 text-white"
-                : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-            }`}
-          >
-            <ToolIcon />
-          </button>
-        );
-      })}
-
-      {currentTool && (
+      {tools.map(({ type, label }) => (
         <button
-          aria-label="Clear selection"
-          title="Clear selection"
-          type="button"
-          onClick={() => setCurrentTool(null)}
-          className="p-2 bg-red-500 text-white rounded-md hover:bg-red-600"
+        aria-label="Label"
+          key={type}
+          onClick={() => handleToolClick(type)}
+          className={cn(
+            "px-4 py-2 rounded-md text-sm font-medium",
+            "transition-colors duration-200",
+            currentTool === type
+              ? "bg-blue-500 text-white"
+              : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+          )}
+          // aria-pressed={currentTool === type}
         >
-          <FaTimes />
+          {label}
         </button>
-      )}
+      ))}
+
+      <input
+        type="color"
+        value={color}
+        onChange={(e) => setAnnotationColor(e.target.value)}
+        className="w-8 h-8 rounded cursor-pointer"
+        aria-label="Annotation color"
+      />
     </div>
   );
 }
