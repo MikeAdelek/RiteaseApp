@@ -27,10 +27,12 @@ export default function Canvas({
     const points: Position[] = [];
     // Collect all points between start and current position
     if (startPosition && currentPosition) {
-      points.push({ x: 0, y: 0 }); // relative to start position
+      points.push({ x: 0, y: 0, width: 0, height: 0 }); // relative to start position
       points.push({
         x: currentPosition.x - startPosition.x,
-        y: currentPosition.y - startPosition.y
+        y: currentPosition.y - startPosition.y,
+        width: 0,
+        height: 0
       });
     }
     return points;
@@ -45,23 +47,38 @@ export default function Canvas({
       const pageElement = pageRef.current;
       if (!pageElement) return;
 
-      canvas.width = pageElement.clientWidth;
-      canvas.height = pageElement.clientHeight;
+      // Get the actual dimensions of the PDF page
+      const pdfPage = pageElement.querySelector(".react-pdf__Page");
+      if (pdfPage) {
+        // Set canvas dimensions to match the PDF page exactly
+        canvas.width = pdfPage.clientWidth;
+        canvas.height = pdfPage.clientHeight;
+      } else {
+        // Fallback if PDF page element not found
+        canvas.width = pageElement.clientWidth;
+        canvas.height = pageElement.clientHeight;
+      }
 
       // Redraw existing annotations after resize
       const context = canvas.getContext("2d");
       if (context && annotations) {
+        // Clear the canvas first
+        context.clearRect(0, 0, canvas.width, canvas.height);
+        // Redraw all annotations
         annotations.forEach((annotation) =>
           drawAnnotation(annotation, context)
         );
       }
     };
 
+    // Initial update and add resize listener
     updateCanvasSize();
     window.addEventListener("resize", updateCanvasSize);
 
     return () => window.removeEventListener("resize", updateCanvasSize);
   }, [pageRef, annotations]);
+
+  const [isNewStroke, setIsNewStroke] = useState(true);
 
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!currentTool) return;
@@ -72,13 +89,33 @@ export default function Canvas({
     const rect = canvas.getBoundingClientRect();
     const position = {
       x: e.clientX - rect.left,
-      y: e.clientY - rect.top
+      y: e.clientY - rect.top,
+      width: 0,
+      height: 0
     };
 
     setStartPosition(position);
     setIsDrawing(true);
-  };
 
+    if (currentTool === "signature") {
+      // Clear previous signature points when starting a new signature
+      setSignaturePoints([
+        {
+          x: position.x,
+          y: position.y,
+          width: 0,
+          height: 0
+        }
+      ]);
+
+      const context = canvas.getContext("2d");
+      if (context) {
+        // Start a new path for the signature
+        context.beginPath();
+        context.moveTo(position.x, position.y);
+      }
+    }
+  };
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!isDrawing || !startPosition || !currentTool) return;
 
@@ -91,12 +128,22 @@ export default function Canvas({
     const rect = canvas.getBoundingClientRect();
     const position = {
       x: e.clientX - rect.left,
-      y: e.clientY - rect.top
+      y: e.clientY - rect.top,
+      width: 0,
+      height: 0
     };
 
     if (currentTool === "signature") {
-      // Store each point for the signature
-      setSignaturePoints((prev) => [...prev, position]);
+      // If this is a new stroke, we've already added the first point in mouseDown
+      if (isNewStroke) {
+        setIsNewStroke(false);
+      } else {
+        // Add this point to the signature points
+        setSignaturePoints((prev) => [
+          ...prev,
+          { x: position.x, y: position.y, width: 0, height: 0 }
+        ]);
+      }
 
       // Draw the current stroke
       context.lineTo(position.x, position.y);
@@ -105,6 +152,7 @@ export default function Canvas({
       context.lineCap = "round";
       context.lineJoin = "round";
       context.stroke();
+      // Don't begin a new path here - that would disconnect the current line
     } else if (currentTool === "comment") {
       // Handle comment box preview
       context.clearRect(0, 0, canvas.width, canvas.height);
@@ -134,7 +182,6 @@ export default function Canvas({
 
     setCurrentPosition(position);
   };
-
   const handleMouseUp = () => {
     if (!isDrawing || !startPosition || !currentTool || !currentPosition)
       return;
@@ -142,17 +189,46 @@ export default function Canvas({
     const canvas = canvasRef.current;
     if (!canvas) return;
 
+    // Calculate width and height
+    const width = Math.abs(currentPosition.x - startPosition.x);
+    const height =
+      currentTool === "comment"
+        ? 100
+        : Math.abs(currentPosition.y - startPosition.y);
+
+    // For signature, use the bounding box of all points
+    let signatureBounds = {
+      minX: Infinity,
+      minY: Infinity,
+      maxX: -Infinity,
+      maxY: -Infinity
+    };
+
+    if (currentTool === "signature" && signaturePoints.length > 0) {
+      // Calculate the bounding box of the signature
+      for (const point of signaturePoints) {
+        signatureBounds.minX = Math.min(signatureBounds.minX, point.x);
+        signatureBounds.minY = Math.min(signatureBounds.minY, point.y);
+        signatureBounds.maxX = Math.max(signatureBounds.maxX, point.x);
+        signatureBounds.maxY = Math.max(signatureBounds.maxY, point.y);
+      }
+    }
+
+    // Create annotation with position object only
     const annotation: Annotation = {
       id: crypto.randomUUID(),
       type: currentTool,
       position: {
-        x: startPosition.x,
-        y: startPosition.y,
-        width: Math.abs(currentPosition.x - startPosition.x),
+        x: currentTool === "signature" ? signatureBounds.minX : startPosition.x,
+        y: currentTool === "signature" ? signatureBounds.minY : startPosition.y,
+        width:
+          currentTool === "signature"
+            ? signatureBounds.maxX - signatureBounds.minX
+            : width,
         height:
-          currentTool === "comment"
-            ? 100
-            : Math.abs(currentPosition.y - startPosition.y)
+          currentTool === "signature"
+            ? signatureBounds.maxY - signatureBounds.minY
+            : height
       },
       color: color || "#000000",
       pageNumber,
@@ -160,7 +236,17 @@ export default function Canvas({
     };
 
     if (currentTool === "signature") {
-      annotation.signaturePoints = signaturePoints;
+      // Make sure we have signature points
+      if (signaturePoints.length > 0) {
+        // Store the signature points relative to the signature's top-left corner
+        annotation.signaturePoints = signaturePoints.map((point) => ({
+          x: point.x - signatureBounds.minX,
+          y: point.y - signatureBounds.minY
+        }));
+
+        console.log("Adding signature annotation with points:", annotation);
+        addAnnotation(annotation);
+      }
     } else if (currentTool === "comment") {
       annotation.text = "";
       // Create textarea for comment input
@@ -189,7 +275,6 @@ export default function Canvas({
     setCurrentPosition(null);
     setSignaturePoints([]);
   };
-
   return (
     <canvas
       ref={canvasRef}

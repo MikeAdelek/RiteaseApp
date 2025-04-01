@@ -8,7 +8,8 @@ import { PDFDocument } from "@/types/types";
  * @param annotations Array of all annotations to be applied to the document
  */
 export const exportAnnotatedPDF = async (
-  currentDocument: PDFDocument | null
+  currentDocument: PDFDocument | null,
+  annotations: Annotation[]
 ): Promise<void> => {
   if (!currentDocument) return;
 
@@ -18,16 +19,13 @@ export const exportAnnotatedPDF = async (
     const pdfDoc = await PDFLib.load(existingPdfBytes);
     const pages = pdfDoc.getPages();
 
-    // Get annotations from the document
-    const annotations = currentDocument.annotations;
-
     // Process each annotation and apply it to the PDF
     for (const annotation of annotations) {
       // Skip annotation if required properties are undefined
       if (
-        annotation.x === undefined ||
-        annotation.width === undefined ||
-        annotation.height === undefined
+        !annotation.position ||
+        annotation.position.width === undefined ||
+        annotation.position.height === undefined
       ) {
         continue;
       }
@@ -39,18 +37,23 @@ export const exportAnnotatedPDF = async (
       );
       const page = pages[pageIndex];
       const pageHeight = page.getHeight();
+      const pageWidth = page.getWidth();
 
-      // Convert y-coordinate (PDF uses bottom-left origin)
-      const y = pageHeight - annotation.y - annotation.height;
+      // Calculate scaling factor between canvas and PDF coordinates
+      const canvasWidth = 800; // Default width, adjust if needed
+      const scaleX = pageWidth / canvasWidth;
+      const scaleY = scaleX; // Maintain aspect ratio
 
       switch (annotation.type) {
         case "highlight":
           // Apply highlight annotation
           page.drawRectangle({
-            x: annotation.x,
-            y: y,
-            width: annotation.width,
-            height: annotation.height,
+            x: annotation.position.x * scaleX,
+            y:
+              pageHeight -
+              (annotation.position.y + annotation.position.height) * scaleY,
+            width: annotation.position.width * scaleX,
+            height: annotation.position.height * scaleY,
             color: hexToRgb(annotation.color || "#FFFF00"),
             opacity: 0.3
           });
@@ -59,9 +62,19 @@ export const exportAnnotatedPDF = async (
         case "underline":
           // Apply underline annotation
           page.drawLine({
-            start: { x: annotation.x, y: y },
-            end: { x: annotation.x + annotation.width, y: y },
-            thickness: 1,
+            start: {
+              x: annotation.position.x * scaleX,
+              y:
+                pageHeight -
+                (annotation.position.y + annotation.position.height) * scaleY
+            },
+            end: {
+              x: (annotation.position.x + annotation.position.width) * scaleX,
+              y:
+                pageHeight -
+                (annotation.position.y + annotation.position.height) * scaleY
+            },
+            thickness: 1 * scaleY,
             color: hexToRgb(annotation.color || "#000000")
           });
           break;
@@ -70,22 +83,24 @@ export const exportAnnotatedPDF = async (
           // Apply comment annotation
           const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
           page.drawRectangle({
-            x: annotation.x,
-            y: y,
-            width: annotation.width,
-            height: annotation.height,
+            x: annotation.position.x * scaleX,
+            y:
+              pageHeight -
+              (annotation.position.y + annotation.position.height) * scaleY,
+            width: annotation.position.width * scaleX,
+            height: annotation.position.height * scaleY,
             color: hexToRgb("#FFFFCC"),
             borderColor: hexToRgb("#CCCCCC"),
-            borderWidth: 1,
+            borderWidth: 1 * scaleX,
             opacity: 0.8
           });
 
           // Draw comment text if available
-          if (annotation.comment) {
-            page.drawText(annotation.comment, {
-              x: annotation.x + 5,
-              y: y + annotation.height - 15,
-              size: 10,
+          if (annotation.text) {
+            page.drawText(annotation.text, {
+              x: (annotation.position.x + 5) * scaleX,
+              y: pageHeight - (annotation.position.y + 15) * scaleY,
+              size: 10 * scaleY,
               font: font,
               color: hexToRgb("#000000")
             });
@@ -93,57 +108,63 @@ export const exportAnnotatedPDF = async (
           break;
 
         case "signature":
-          // Apply signature by drawing the points
+          // Debug logging to check if we're entering this case
+          console.log("Processing signature annotation:", annotation);
+
+          // Check if signaturePoints exist and are valid
           if (
             annotation.signaturePoints &&
-            annotation.signaturePoints.length > 1
+            annotation.signaturePoints.length > 0
           ) {
-            // Draw the signature by connecting points
-            for (let i = 0; i < annotation.signaturePoints.length - 1; i++) {
-              const point = annotation.signaturePoints[i];
-              const nextPoint = annotation.signaturePoints[i + 1];
+            console.log(
+              "Signature points found:",
+              annotation.signaturePoints.length
+            );
 
-              page.drawLine({
-                start: {
-                  x: annotation.x + point.x,
-                  y: pageHeight - annotation.y - point.y
-                },
-                end: {
-                  x: annotation.x + nextPoint.x,
-                  y: pageHeight - annotation.y - nextPoint.y
-                },
-                thickness: 1.5,
-                color: hexToRgb(annotation.color || "#000000")
-              });
+            // Draw each point as a connected line
+            let isFirstPoint = true;
+            let lastX = 0,
+              lastY = 0;
+
+            for (const point of annotation.signaturePoints) {
+              // Skip invalid points
+              if (
+                !point ||
+                typeof point.x !== "number" ||
+                typeof point.y !== "number"
+              ) {
+                console.log("Skipping invalid point:", point);
+                continue;
+              }
+
+              // Calculate the absolute position in PDF coordinates
+              const x = (annotation.position.x + point.x) * scaleX;
+              const y = pageHeight - (annotation.position.y + point.y) * scaleY;
+
+              if (isFirstPoint) {
+                // For the first point, just store its position
+                isFirstPoint = false;
+              } else {
+                // For subsequent points, draw a line from the last point
+                page.drawLine({
+                  start: { x: lastX, y: lastY },
+                  end: { x, y },
+                  thickness: 2 * scaleY,
+                  color: hexToRgb(annotation.color || "#000000")
+                });
+              }
+
+              // Update the last point
+              lastX = x;
+              lastY = y;
             }
+          } else {
+            console.log(
+              "No signature points found for annotation:",
+              annotation
+            );
           }
           break;
-
-        // case "drawing":
-        //   // Similar to signature, but might have different styling
-        //   if (
-        //     annotation.signaturePoints &&
-        //     annotation.signaturePoints.length > 1
-        //   ) {
-        //     for (let i = 0; i < annotation.signaturePoints.length - 1; i++) {
-        //       const point = annotation.signaturePoints[i];
-        //       const nextPoint = annotation.signaturePoints[i + 1];
-
-        //       page.drawLine({
-        //         start: {
-        //           x: annotation.x + point.x,
-        //           y: pageHeight - annotation.y - point.y
-        //         },
-        //         end: {
-        //           x: annotation.x + nextPoint.x,
-        //           y: pageHeight - annotation.y - nextPoint.y
-        //         },
-        //         thickness: 2,
-        //         color: hexToRgb(annotation.color || "#000000")
-        //       });
-        //     }
-        //   }
-        //   break;
       }
     }
 

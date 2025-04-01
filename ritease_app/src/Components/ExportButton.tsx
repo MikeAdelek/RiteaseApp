@@ -19,7 +19,17 @@ export const ExportButton: FC = () => {
 
     try {
       setIsExporting(true);
-      await exportAnnotatedPDF(currentDocument, annotations)
+
+      // Debug: Check annotations before export
+      console.log("Exporting annotations:", annotations);
+
+      // Check specifically for signature annotations
+      const signatureAnnotations = annotations.filter(
+        (a) => a.type === "signature"
+      );
+      console.log("Signature annotations:", signatureAnnotations);
+
+      await exportAnnotatedPDF(currentDocument, annotations);
     } catch (error) {
       console.error("Error exporting PDF:", error);
     } finally {

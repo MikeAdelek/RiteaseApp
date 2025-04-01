@@ -21,8 +21,8 @@ export type AnnotationType =
 export interface Position {
   x: number;
   y: number;
-  width?: number;
-  height?: number;
+  width: number;
+  height: number;
 }
 
 export interface SignaturePoint {
@@ -31,10 +31,6 @@ export interface SignaturePoint {
 }
 
 export interface Annotation {
-  x: number | undefined;
-  y: number;
-  width: number | undefined;
-  height: number | undefined;
   id: string;
   type: AnnotationType;
   position: Position;
@@ -44,6 +40,7 @@ export interface Annotation {
   comment?: string; // For comments
   signaturePoints?: Array<{ x: number; y: number }>; // For signatures
   createdAt: Date;
+  updatedAt?: Date;
 }
 
 // Component Props Types

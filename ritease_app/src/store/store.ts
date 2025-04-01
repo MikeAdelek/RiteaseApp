@@ -58,11 +58,15 @@ export const usePDFStore = create<PDFState>((set) => ({
 
   // Annotation Actions
   addAnnotation: (annotation) => {
-    console.log("Adding annotation:", annotation);
-    set((state) => ({
-      annotations: [...state.annotations, annotation],
-      error: null
-    }));
+    console.log("Adding annotation to store:", annotation);
+    set((state) => {
+      const newAnnotations = [...state.annotations, annotation];
+      console.log("Updated annotations:", newAnnotations);
+      return {
+        annotations: newAnnotations,
+        error: null
+      };
+    });
   },
 
   updateAnnotation: (id, updates) =>
